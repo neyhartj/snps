@@ -1,3 +1,31 @@
+#' Calculate per-snp or per-genotype missingness
+#'
+#' @param x An n x p marker matrix of n individuals and p markers coded as -1, 0, and 1
+#' for homozygous alternate, heterozygous, and homozygous reference.
+#' @param check.matrix Logical. Should the marker matrix 'x' be checked? Use check.matrix = FALSE
+#' if 'x' contains imputed decimal genotypes.
+#'
+#' @export
+#'
+calc_missing <- function(x, check.matrix = TRUE) {
+
+  ## Error checking
+  stopifnot(is.logical(check.matrix))
+  if (check.matrix) stopifnot(check_marker_matrix(x))
+
+  miss <- is.na(x)
+
+  # Calculate per-snp missingness
+  snp_miss <- colMeans(miss)
+  # Genotype missingness
+  geno_miss <- rowMeans(miss)
+
+  # Return both
+  c("snp.miss" = snp_miss, "geno.miss" = geno_miss)
+
+}
+
+
 #' Calculate minor allele frequency
 #'
 #' @param x An n x p marker matrix of n individuals and p markers coded as -1, 0, and 1
@@ -25,8 +53,9 @@ calc_maf <- function(x, check.matrix = TRUE) {
 #' Prune SNPs based on linkage disequilibrium
 #'
 #' @param x An n x p marker matrix of n individuals and p markers coded as -1, 0, and 1
+#' @param sim.mat A similarity matrix between SNPs. No calculation of LD will be made if this matrix is passed.
 #' for homozygous alternate, heterozygous, and homozygous reference.
-#' @param r2max The maximum acceptable value of r2 (i.e. LD) between any two markers.
+#' @param r2max The maximum acceptable value of r2 (i.e. LD) or similarity between any two markers.
 #' @param check.matrix Logical. Should the marker matrix 'x' be checked? Use check.matrix = FALSE
 #' if 'x' contains imputed decimal genotypes.
 #'
@@ -35,25 +64,37 @@ calc_maf <- function(x, check.matrix = TRUE) {
 #'
 #' @export
 #'
-prune_LD <- function(x, r2.max = 0.80, check.matrix = TRUE) {
+prune_LD <- function(x, sim.mat, r2.max = 0.80, check.matrix = TRUE) {
 
   ## Error checking
   # Check the marker matrix
   stopifnot(is.logical(check.matrix))
   if (check.matrix) stopifnot(check_marker_matrix(x))
+  if (!missing(dist.mat)) {
+    stopifnot(is.matrix(dist.mat))
+  }
   # check r2max
   stopifnot(r2.max >= 0 & r2.max <= 1)
 
   # calculate minor allele frequency
   maf <- calc_maf(x)
 
-  # calculate the correlation between all markers; square it
-  if (any(is.na(x))) {
-    all_marker_r <- cor(x, use = "pairwise.complete.obs")^2
+  if (missing(sim.mat)) {
+
+    # calculate the correlation between all markers; square it
+    if (any(is.na(x))) {
+      all_marker_r <- cor(x, use = "pairwise.complete.obs")^2
+
+    } else {
+      all_marker_r <- cor(x)^2
+    }
 
   } else {
-    all_marker_r <- cor(x)^2
+    all_marker_r <- sim.mat
+
   }
+
+
 
   # Set the lower half (including diagonal) to NA
   all_marker_r1 <- all_marker_r
@@ -149,7 +190,7 @@ filter_snps <- function(x, r2.max, maf.min, indiv.miss.max, snp.miss.max, check.
     stopifnot(maf.min >= 0 & maf.min <= 1)
 
     # calculate minor allele frequency
-    maf <- calc_maf(x2)
+    maf <- calc_maf(x2, check.matrix = check.matrix)
     x3 <- x2[,maf >= maf.min, drop = FALSE]
 
   } else {
@@ -159,7 +200,7 @@ filter_snps <- function(x, r2.max, maf.min, indiv.miss.max, snp.miss.max, check.
   if (!missing(r2.max)) {
     stopifnot(r2.max >= 0 & r2.max <= 1)
     # Prune on LD
-    x4 <- prune_LD(x = x3, r2.max = r2.max)
+    x4 <- prune_LD(x = x3, r2.max = r2.max, check.matrix = check.matrix)
 
   } else {
     x4 <- x3

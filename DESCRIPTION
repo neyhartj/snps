@@ -7,9 +7,9 @@ Authors@R:
            role = c("aut", "cre"),
            email = "neyhartje@gmail.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: Provides functions for processing SNP marker data stored in matrix format.
+Description: Provides functions for processing SNP marker data
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.3
